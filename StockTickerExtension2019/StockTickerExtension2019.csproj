@@ -101,8 +101,19 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="License.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="PreviewImg1.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <Content Include="Resources\StockToolWindowControlCommand.png" />
-    <Content Include="StockTicker.ico" />
+    <Content Include="StockTicker.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <VSCTCompile Include="StockTickerExtension2019Package.vsct">
       <ResourceName>Menus.ctmenu</ResourceName>
     </VSCTCompile>
