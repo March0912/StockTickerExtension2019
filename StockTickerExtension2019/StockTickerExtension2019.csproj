@@ -4,6 +4,9 @@
     <MinimumVisualStudioVersion>16.0</MinimumVisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>StockTicker.ico</ApplicationIcon>
+  </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -99,6 +102,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Resources\StockToolWindowControlCommand.png" />
+    <Content Include="StockTicker.ico" />
     <VSCTCompile Include="StockTickerExtension2019Package.vsct">
       <ResourceName>Menus.ctmenu</ResourceName>
     </VSCTCompile>

@@ -443,7 +443,7 @@ namespace StockTickerExtension2019
             if (obj is Control ctrl)
             {
                 //                 ctrl.Background = bgBrush;
-                if (ctrl.Name != "StartBtn" && ctrl.Name != "StopBtn" && bgColor0.Name.ToLower() == "ff1f1f1f")
+                if (ctrl.Name != "StartBtn" && ctrl.Name != "StopBtn" && bgColor0.Name.ToLower() == "ff252526")
                     ctrl.Foreground = fgBrush;
 
                 if (ctrl is ComboBox combo)
