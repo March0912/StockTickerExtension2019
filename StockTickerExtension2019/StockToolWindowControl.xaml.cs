@@ -1094,11 +1094,12 @@ namespace StockTickerExtension2019
             {
                 case StockType.StockA:
                     {
-                        if (code.StartsWith("3"))
+                        char first = code[0];
+                        if (first == '0' || first == '2' || first == '3')
                         {
                             secId = "0." + code;
                         }
-                        else if (code.StartsWith("6") || code.StartsWith("0"))
+                        else if (first == '6' || first == '9')
                         {
                             secId = "1." + code;
                         }
@@ -1130,7 +1131,7 @@ namespace StockTickerExtension2019
             {
                 _currentSnapshot = snap;
 
-                if (!CodeTextBox.Text.Contains(snap.Name))
+                if (CodeTextBox.Text.StartsWith(snap.Code) && !CodeTextBox.Text.EndsWith(snap.Name))
                 {
                     CodeTextBox.Text = snap.Code + " " + snap.Name;
                 }
