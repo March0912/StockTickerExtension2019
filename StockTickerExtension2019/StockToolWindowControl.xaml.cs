@@ -772,6 +772,7 @@ namespace StockTickerExtension2019
                 _uiTimer.Stop();
 
             Logger.Info("Monitoring stoped!");
+            _currentSnapshot = null;
         }
 
         private string PeriodToKType(PeriodType period)
@@ -1985,12 +1986,11 @@ namespace StockTickerExtension2019
             var sourceControl = sender as ScottPlot.WpfPlot;
             if (sourceControl == null) return;
 
-            if (_crosshair != null)
+            if (_crosshair != null && _currentSnapshot != null)
             {
                 (double mouseX, double mouseY) = sourceControl.GetMouseCoordinates();
 
-                var xTicks = WpfPlotPrice.Plot.XAxis.GetTicks();
-                var xTicksLen = _currentSnapshot == null ? 0 : _currentSnapshot.Prices?.Length ?? 0;
+                var xTicksLen = GetCurrentPeriod() == PeriodType.Intraday ? (_currentSnapshot.Prices?.Length ?? 0) : (_currentSnapshot.KLineDates?.Length ?? 0);
 
                 // 限制在范围内
                 if (mouseX < 0 || mouseX >= xTicksLen)
@@ -2011,10 +2011,18 @@ namespace StockTickerExtension2019
 
                 sourceControl.Cursor = Cursors.Cross;
 
-                string time = _tradingMinutes[index].Split(' ')[1]; // 显示HH:mm
-                if (GetCurrentPeriod() != PeriodType.Intraday)
+                string time = "";
+                if (GetCurrentPeriod() == PeriodType.Intraday)
                 {
-                    time = _tradingMinutes[index].Split(' ')[0]; // 显示YYYY-MM-DD
+                    time = _tradingMinutes[index].Split(' ')[1]; // 显示HH:mm
+                }
+                else if (GetCurrentPeriod() == PeriodType.DailyK || GetCurrentPeriod() == PeriodType.WeeklyK)
+                {
+                    time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM-dd");
+                }
+                else// if (GetCurrentPeriod() == PeriodType.MonthlyK || GetCurrentPeriod() == PeriodType.QuarterlyK)
+                {
+                    time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM");
                 }
                 var y = mouseY;// prices[index];
 
