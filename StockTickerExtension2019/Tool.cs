@@ -194,6 +194,10 @@ namespace StockTickerExtension2019
         /// </summary>
         public double[] SellVolumes { get; set; }
         /// <summary>
+        /// K线日期
+        /// </summary>
+        public DateTime[] KLineDates { get; set; }
+        /// <summary>
         /// 涨跌幅
         /// </summary>
         public double? ChangePercent { get; set; }
