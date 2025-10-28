@@ -719,6 +719,7 @@ namespace StockTickerExtension2019
             {
                 return;
             }
+            _currentSnapshot = null;
 
             var code = codeName.Split(' ')[0];
             _cts = new CancellationTokenSource();
@@ -772,7 +773,6 @@ namespace StockTickerExtension2019
                 _uiTimer.Stop();
 
             Logger.Info("Monitoring stoped!");
-            _currentSnapshot = null;
         }
 
         private string PeriodToKType(PeriodType period)
