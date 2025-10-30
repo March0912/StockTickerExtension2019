@@ -7,7 +7,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -42,6 +41,7 @@ namespace StockTickerExtension2019
         StockSnapshot _currentSnapshot;
         private Crosshair _crosshair;
         private FuzzySearchDialog _fuzzySearchDialog;
+        private bool _isBlackTheme = false;
 
         // K线图缩放和拖拽相关字段
         private bool _isDragging = false;
@@ -49,6 +49,7 @@ namespace StockTickerExtension2019
         private double _dragStartX = 0;
         private int _dragStartIndex = 0;
         private bool _isEditingCodeText = false;
+        private ScottPlot.Plottable.Text _infoText;
 
         const string s_trendsURL = "https://push2his.eastmoney.com/api/qt/stock/trends2/get";
         const string s_klineURL = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
@@ -406,6 +407,8 @@ namespace StockTickerExtension2019
             var bgBrush = new SolidColorBrush(bgColor);
             var bdBrush = new SolidColorBrush(bdColor);
 
+            _isBlackTheme = bgColor0.Name.ToLower() == "ff252526";
+
             // 设置当前控件
             if (obj is Control ctrl)
             {
@@ -432,10 +435,9 @@ namespace StockTickerExtension2019
                 }
                 else if (ctrl is CheckBox cb)
                 {
-                    bool isBlackTheme = bgColor0.Name.ToLower() == "ff252526";
                     if (cb.Name == "MA5")
                     {
-                        cb.Foreground = new SolidColorBrush(isBlackTheme ? Colors.White : Colors.Black);
+                        cb.Foreground = new SolidColorBrush(_isBlackTheme ? Colors.White : Colors.Black);
                     }
                     else if (cb.Name == "MA10")
                     {
@@ -457,7 +459,7 @@ namespace StockTickerExtension2019
                     {
                         cb.Foreground = fgBrush;
                     }
-                    if (isBlackTheme)  //暗黑主题才调整
+                    if (_isBlackTheme)  //暗黑主题才调整
                     {
                         cb.ApplyTemplate();
                         ApplyThemeToCheckBoxChildren(cb);
@@ -926,6 +928,7 @@ namespace StockTickerExtension2019
             var highs = new double[count];
             var lows = new double[count];
             var openPrice = new double[count];
+            var changePercents = new double[count];
             var kLineDates = new DateTime[count];
 
             for (int i = 0; i < count; i++)
@@ -980,7 +983,11 @@ namespace StockTickerExtension2019
                 }
             }
             double lastPrice = prices.Last();
-            double changePercent = (count >= 2) ? (lastPrice - prices[count - 2]) / prices[count - 2] * 100 : 0;
+            changePercents[0] = 0;
+            for (int i = 1; i < count; i++)
+            {
+                changePercents[i] = (prices[i] - prices[i - 1]) / prices[i - 1] * 100;
+            }
 
             // 计算严格窗口的全序列均线
             double[] ma5full = Tool.ComputeExactWindowSMA(prices, 5);
@@ -1003,7 +1010,7 @@ namespace StockTickerExtension2019
                 SellVolumes = sellVols,
                 KLineDates = kLineDates,
                 CurrentPrice = lastPrice,
-                ChangePercent = changePercent,
+                ChangePercents = changePercents,
                 MA5 = ma5full,
                 MA10 = ma10full,
                 MA20 = ma20full,
@@ -1107,10 +1114,10 @@ namespace StockTickerExtension2019
                 }
 
                 double lastPrice = parsedRows.LastOrDefault().price;
-                double changePercent = double.NaN;
+                var changePercents = new double[1];
                 if (double.TryParse(dataObj["preClose"]?.ToString(), out double preClose))
                 {
-                    changePercent = (lastPrice - preClose) / preClose * 100;
+                    changePercents[0] = (lastPrice - preClose) / preClose * 100;
                 }
 
                 return new StockSnapshot
@@ -1123,7 +1130,7 @@ namespace StockTickerExtension2019
                     Volumes = vols,
                     BuyVolumes = buy,
                     SellVolumes = sell,
-                    ChangePercent = changePercent
+                    ChangePercents = changePercents
                 };
             }
         }
@@ -1185,10 +1192,7 @@ namespace StockTickerExtension2019
                 UpdatePriceChart(snap);
                 UpdateMAText(snap);
 
-                var val = snap.ChangePercent.Value;
-                ChangePercentText.Text = snap.ChangePercent.HasValue ? $"{val:F2}%" : "--%";
-                ChangePercentText.Foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
-                CurrentPriceText.Text = snap.CurrentPrice.ToString();
+                UpdatePricesText(snap);
 
                 UpdateProfitDisplay();
 
@@ -1835,6 +1839,30 @@ namespace StockTickerExtension2019
             }
         }
 
+        private void UpdatePricesText(StockSnapshot snap)
+        {
+            var val = snap.ChangePercents != null ? snap.ChangePercents.Last() : 0;
+            var foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
+
+            CurrentPriceText.Text = snap.CurrentPrice.ToString();
+            CurrentPriceText.Foreground = foreground;
+
+            if (GetCurrentPeriod() == PeriodType.Intraday)
+            {
+                var prices = snap.Prices.Where(p => !double.IsNaN(p)).ToArray();
+                OpenPriceText.Text = snap.Prices.First().ToString("F2");
+                HighestPriceText.Text = prices.Max().ToString("F2");
+                LowestPriceText.Text = prices.Min().ToString("F2");
+            }
+            else
+            {
+                OpenPriceText.Text = snap.OpenPrice.Last().ToString("F2");
+                HighestPriceText.Text = snap.HighPrices.Last().ToString("F2");
+                LowestPriceText.Text = snap.LowPrices.Last().ToString("F2");
+            }
+            ChangePercentText.Text = val != 0 ? $"{val:F2}%" : "--%";
+            ChangePercentText.Foreground = foreground;
+        }
         private void UpdateStatus(string text, System.Windows.Media.Brush color = null)
         {
             Dispatcher.BeginInvoke(new Action(() =>
@@ -2079,25 +2107,60 @@ namespace StockTickerExtension2019
                 sourceControl.Cursor = Cursors.Cross;
 
                 string time = "";
+                string labelText = "";
                 if (GetCurrentPeriod() == PeriodType.Intraday)
                 {
                     time = _tradingMinutes[index].Split(' ')[1]; // 显示HH:mm
+                    labelText = $"Price:{_currentSnapshot.Prices[index]} \r\nAvgPrice:{_currentSnapshot.AvgPrices[index]}";
                 }
-                else if (GetCurrentPeriod() == PeriodType.DailyK || GetCurrentPeriod() == PeriodType.WeeklyK)
+                else
                 {
-                    time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM-dd");
-                }
-                else// if (GetCurrentPeriod() == PeriodType.MonthlyK || GetCurrentPeriod() == PeriodType.QuarterlyK)
-                {
-                    time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM");
-                }
-                var y = mouseY;// prices[index];
+                    if (GetCurrentPeriod() == PeriodType.DailyK || GetCurrentPeriod() == PeriodType.WeeklyK)
+                        time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM-dd");
+                    else
+                        time = _currentSnapshot.KLineDates[index].ToString("yyyy-MM");
 
+                    var val = _currentSnapshot.ChangePercents != null ? _currentSnapshot.ChangePercents[index] : 0;
+                    var open = _currentSnapshot.OpenPrice[index];
+                    var close = _currentSnapshot.Prices[index];
+                    var high = _currentSnapshot.HighPrices[index];
+                    var low = _currentSnapshot.LowPrices[index];
+
+                    labelText = $"Open: {open:F2} \r\n" +
+                    $"Close: {close:F2} \r\n" +
+                    $"High: {high:F2} \r\n" +
+                    $"Low: {low:F2} \r\n" +
+                    $"Change:{val:F2}%";
+
+                    OpenPriceText.Text = open.ToString("F2");
+                    CurrentPriceText.Text = close.ToString("F2");
+                    HighestPriceText.Text = high.ToString("F2");
+                    LowestPriceText.Text = low.ToString("F2");
+                    ChangePercentText.Text = $"{val:F2}%";
+                    var foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
+                    ChangePercentText.Foreground = foreground;
+                }
+                if (_infoText != null)
+                {
+                    WpfPlotPrice.Plot.Remove(_infoText);
+                }
+                var posX = index;
+                if (posX > xTicksLen - 20)
+                {
+                    posX = posX - 20;
+                }
+                _infoText = WpfPlotPrice.Plot.AddText(labelText, posX + 1, _crosshair.Y, color: _isBlackTheme ? System.Drawing.Color.White : System.Drawing.Color.Blue);
+                _infoText.Alignment = ScottPlot.Alignment.UpperLeft;
+                _infoText.Font.Size = 14;
+                _infoText.Font.Bold = true;
+                _infoText.BackgroundColor = System.Drawing.Color.Gray;
+
+                var y = mouseY;
                 // 更新十字线位置与标签
                 _crosshair.IsVisible = true;
                 _crosshair.X = index;
                 _crosshair.Y = y;
-                _crosshair.Label = $"{time} {y:F2}";
+                _crosshair.Label = labelText;
                 _crosshair.HorizontalLine.PositionFormatter = v => $"{y:F2}";
                 _crosshair.VerticalLine.PositionFormatter = v => $"{time}";
                 _crosshair.HorizontalLine.Color = System.Drawing.Color.Red;
@@ -2137,6 +2200,10 @@ namespace StockTickerExtension2019
         {
             if (_crosshair != null)
             {
+                if (_infoText != null)
+                {
+                    WpfPlotPrice.Plot.Remove(_infoText);
+                }
                 _crosshair.IsVisible = false;
                 WpfPlotPrice.Refresh();
             }
@@ -2144,6 +2211,36 @@ namespace StockTickerExtension2019
             var sourceControl = sender as ScottPlot.WpfPlot;
             if (sourceControl != null)
                 sourceControl.Cursor = Cursors.Arrow;
+
+            if (_currentSnapshot != null)
+            {
+                if (GetCurrentPeriod() == PeriodType.Intraday)
+                {
+                    var prices = _currentSnapshot.Prices.Where(p => !double.IsNaN(p)).ToArray();
+                    OpenPriceText.Text = _currentSnapshot.Prices.First().ToString();
+                    HighestPriceText.Text = prices.Max().ToString();
+                    LowestPriceText.Text = prices.Min().ToString();
+
+                    var val = _currentSnapshot.ChangePercents != null ? _currentSnapshot.ChangePercents.Last() : 0;
+                    ChangePercentText.Text = $"{val:F2}%"; //$"{val: F2}%";
+                    var foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
+                    ChangePercentText.Foreground = foreground;
+                }
+                else
+                {
+                    var open = _currentSnapshot.OpenPrice.Last();
+                    var high = _currentSnapshot.HighPrices.Last();
+                    var low = _currentSnapshot.LowPrices.Last();
+
+                    OpenPriceText.Text = open.ToString();
+                    HighestPriceText.Text = high.ToString();
+                    LowestPriceText.Text = low.ToString();
+                    var val = _currentSnapshot.ChangePercents != null ? _currentSnapshot.ChangePercents.Last() : 0;
+                    ChangePercentText.Text = $"{val:F2}%";
+                    var foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
+                    ChangePercentText.Foreground = foreground;
+                }
+            }
         }
 
         private async System.Threading.Tasks.Task MonitorKDJAsync(string code, CancellationToken token)
