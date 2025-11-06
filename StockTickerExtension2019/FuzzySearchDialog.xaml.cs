@@ -12,11 +12,9 @@ namespace StockTickerExtension2019
 {
     public partial class FuzzySearchDialog : Window
     {
-        public string SelectedCode { get; private set; }
-        public string SelectedName { get; private set; }
-
 		private bool _isClosing = false;
 		public event Action<StockInfo> StockSelected;
+		private List<StockInfo> _list;
 
 		public FuzzySearchDialog(List<StockInfo> list)
         {
@@ -49,26 +47,24 @@ namespace StockTickerExtension2019
 			{
 				var item = new ListViewItem
 				{
-					Content = $"{stock.Code} {stock.Name}",
+					Content = $"{stock.Code} {stock.Name} {stock.StockType}",
 				};				
 				ResultList.Items.Add(item);
 			}
-            InitUIColor();
+			_list = list;
+			InitUIColor();
         }
 
         private async void ListBox_MouseDoubleClickEvent(object sender, MouseButtonEventArgs e)
         {
 			if(ResultList.SelectedItem is ListViewItem item && item.IsSelected)
             {
-                SelectedCode = item.Content.ToString().Split(' ')[0];
-                SelectedName = item.Content.ToString().Split(' ')[1];
-
-				StockInfo info = new StockInfo
+				int idx = ResultList.SelectedIndex;
+				if (idx >= 0 && idx < _list.Count)
 				{
-					Code = SelectedCode,
-					Name = SelectedName
-				};
-				StockSelected?.Invoke(info);
+					StockInfo info = _list[idx];
+					StockSelected?.Invoke(info);
+				}
 				SafeClose();
 			}
         }

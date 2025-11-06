@@ -83,7 +83,10 @@ namespace StockTickerExtension2019
                 }
                 else
                 {
-                    _statusUpdater.Start();
+                    if (tb.IsMonitoring())
+                    {
+                        _statusUpdater.Start();
+                    }
                 }
                 tb.SaveConfig();
             }

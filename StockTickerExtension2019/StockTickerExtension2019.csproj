@@ -51,6 +51,7 @@
     <Compile Include="FuzzySearchDialog.xaml.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StockInfoFetcher.cs" />
     <Compile Include="StockStatusBarUpdater.cs" />
     <Compile Include="StockTickerExtension2019Package.cs" />
     <Compile Include="StockToolWindow.cs" />
