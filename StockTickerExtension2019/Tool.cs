@@ -7,9 +7,6 @@ namespace StockTickerExtension2019
 {
     public class Tool
     {
-        /// <summary>
-        /// 检测KDJ金叉出现（上一根K<D，本根K≥D）
-        /// </summary>
         static public bool HasKDJGoldenCross(double[] closes, double[] highs, double[] lows)
         {
             if (closes == null || highs == null || lows == null || closes.Length < 10)
@@ -51,10 +48,6 @@ namespace StockTickerExtension2019
             }
             return false;
         }
-
-        /// <summary>
-        /// 检测KDJ死叉出现（上一根K>D，本根K≤D）
-        /// </summary>
         static public bool HasKDJDeadCross(double[] closes, double[] highs, double[] lows)
         {
             if (closes == null || highs == null || lows == null || closes.Length < 10)
@@ -153,7 +146,6 @@ namespace StockTickerExtension2019
 
             return result;
         }
-
         static public System.Windows.Media.Color ColorFromHex(string hex, double opacity = 1.0)
         {
             // hex like "#RRGGBB" or "#AARRGGBB"
@@ -168,7 +160,6 @@ namespace StockTickerExtension2019
                 return Colors.Transparent;
             }
         }
-
         static public StockMarket ToStockMarket(string code)
         {
             StockMarket sm = StockMarket.StockA;
@@ -226,7 +217,6 @@ namespace StockTickerExtension2019
             return secId;
         }
         static public bool IsWeekend(DateTime dt) => dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday;
-
         static public bool IsTradingTime(StockMarket stockType, DateTime dt)
         {
             if (Tool.IsWeekend(dt))
@@ -272,7 +262,6 @@ namespace StockTickerExtension2019
                 return (nowTime >= start.TimeOfDay && nowTime <= end.TimeOfDay);
             }
         }
-
         static public string PeriodToKType(PeriodType period)
         {
             string kType;
@@ -299,7 +288,6 @@ namespace StockTickerExtension2019
             }
             return kType;
         }
-
         static public List<string> BuildTradingMinutes(StockMarket stockType, DateTime date)
         {
             var list = new List<string>();
@@ -362,7 +350,6 @@ namespace StockTickerExtension2019
             }
             return list;
         }
-
         static public (List<double> ticks, List<string> labels) GenerateTimeAxisLabels(PeriodType period, DateTime[] dates, DateTime currentDate)
         {
             var dateCount = dates.Length;

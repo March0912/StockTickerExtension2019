@@ -16,12 +16,28 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Task = System.Threading.Tasks.Task;
 
 namespace StockTickerExtension2019
 {
-    /// <summary>
-    /// Interaction logic for StockToolWindowControlControl.
-    /// </summary>
+    public class StockTokenSource : CancellationTokenSource
+    {
+        public StockTokenSource(string code, PeriodType period) : base()
+        {
+            _code = code;
+            _period = period;
+        }
+        public string _code { get; set; }
+        public PeriodType _period { get; set; }
+        public int _fetchIntervalSeconds = 2;
+    }
+
+    public class BackGroundTockenSource : CancellationTokenSource
+    {
+        public List<string> _stockList;
+        public int _curIndex = -1;
+    }
+
     public partial class StockToolWindowControl : UserControl
     {
         private readonly StockToolWindow _ownerPane;
@@ -29,34 +45,33 @@ namespace StockTickerExtension2019
         private readonly HttpClient _http = new HttpClient();
         private readonly ConcurrentQueue<StockSnapshot> _queue = new ConcurrentQueue<StockSnapshot>();
 
-        private CancellationTokenSource _cts;
+        private StockTokenSource _cts;
+        private CancellationTokenSource _kdjCts;
+
         private DispatcherTimer _uiTimer;
         private List<string> _tradingMinutes;
-        private int _fetchIntervalSeconds = 5;
         private bool _monitoring = false;
         private bool _monitorOnce = false;
         private DateTime _currentDate;
-        private CancellationTokenSource _kdjCts;
         private StockMarket _stockType = StockMarket.StockA;
         private StockSnapshot _currentSnapshot;
         private Crosshair _crosshair;
         private FuzzySearchDialog _fuzzySearchDialog;
         private bool _isBlackTheme = false;
+        private bool _isEditingCodeText = false;
+        private ScottPlot.Plottable.Text _infoText;
+
+        private BackGroundTockenSource _backgroundWatchListCts;
 
         // K线图缩放和拖拽相关字段
         private bool _isDragging = false;
         private System.Windows.Point _lastMousePosition;
         private double _dragStartX = 0;
         private int _dragStartIndex = 0;
-        private bool _isEditingCodeText = false;
-        private ScottPlot.Plottable.Text _infoText;
 
         const string s_trendsURL = "https://push2his.eastmoney.com/api/qt/stock/trends2/get";
         const string s_klineURL = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="StockToolWindowControl"/> class.
-        /// </summary>
         public StockToolWindowControl(ToolWindowPane owner)
         {
             this.InitializeComponent();
@@ -134,7 +149,7 @@ namespace StockTickerExtension2019
                 WpfPlotVolume.Visibility = Visibility.Visible;
             }
 
-            StartBtn_Click(null, null);
+            StartMonitoring(false);
         }
 
         private void UpdateStockType(StockMarket type)
@@ -225,6 +240,10 @@ namespace StockTickerExtension2019
 			var text = comboBox.SelectedItem?.ToString();
             if (!string.IsNullOrEmpty(text))
             {
+                if (_currentSnapshot != null && text.StartsWith(_currentSnapshot.Code))
+                {
+                    return;
+                }
                 StockMarket sm = StockMarket.StockA;
                 if (text.EndsWith(StockMarket.StockHK.ToString()))
                 {
@@ -239,7 +258,7 @@ namespace StockTickerExtension2019
                     sm = StockMarket.StockA;
                 }
                 UpdateStockType(sm);
-                StartMonitoring(text);
+                StartMonitoring(false, text);
             }
 		}
 
@@ -252,6 +271,10 @@ namespace StockTickerExtension2019
                 if (!CodeTextBox.Items.Contains(text))
                 {
                     CodeTextBox.Items.Add(text);
+                    if (_backgroundWatchListCts != null)
+                    {
+                        _backgroundWatchListCts._stockList.Add(text);
+                    }
                 }
             }
         }
@@ -262,6 +285,10 @@ namespace StockTickerExtension2019
             if (!string.IsNullOrEmpty(text))
             {
                 CodeTextBox.Items.Remove(text);
+                if (_backgroundWatchListCts != null)
+                {
+                    _backgroundWatchListCts._stockList.Remove(text);
+                }
             }
         }
 
@@ -312,6 +339,7 @@ namespace StockTickerExtension2019
             }
 
             _uiTimer = new DispatcherTimer(TimeSpan.FromSeconds(0.1), DispatcherPriority.Normal, UiTimer_Tick, Dispatcher.CurrentDispatcher);
+            _uiTimer.Stop();
         }
 
         private void InitCodeTextBox()
@@ -642,7 +670,7 @@ namespace StockTickerExtension2019
            return -1;
        }
 
-        private void StartMonitoring(string text = "")
+        private void StartMonitoring(bool bRestart = true, string text = "")
         {
             PeriodType period = (PeriodType)PeriodComboBox.SelectedIndex;
             if (!CheckTradingTime())
@@ -654,8 +682,10 @@ namespace StockTickerExtension2019
                 // 如果不在交易时间，则不启动监控，只获取一次数据
                 _monitorOnce = true;
             }
-
-            StopMonitoring();
+            if (bRestart)
+            {
+                StopMonitoring();
+            }
             _monitoring = true;
 
             var codeName = string.IsNullOrEmpty(text) ? CodeTextBox.Text?.Trim() : text;
@@ -666,27 +696,28 @@ namespace StockTickerExtension2019
             _currentSnapshot = null;
 
             var code = codeName.Split(' ')[0];
-            _cts = new CancellationTokenSource();
-            _ = System.Threading.Tasks.Task.Run(() => MonitorLoopAsync(code, period, _cts.Token));
-
-            // ✅ 如果是分时图，则同时启动金叉监控线程
-//            if (period == PeriodType.Intraday)
-//            {
-//                _kdjCts = new CancellationTokenSource();
-//                if (!_monitorOnce)
-//                {
-//                    _ = System.Threading.Tasks.Task.Run(() => MonitorKDJAsync(code, _kdjCts.Token));
-//                }
-//            }
+            if (_cts == null)
+            {
+                _cts = new StockTokenSource(code, period);
+                _ = Task.Run(() => MonitorLoopAsync(_cts));
+            }
+            else if(!bRestart)
+            {
+                _cts._code = code;
+                _cts._period = period;
+            }
 
             if (!_uiTimer.IsEnabled) _uiTimer.Start();
-            UpdateStatus("", System.Windows.Media.Brushes.LightBlue);
+            UpdateStatus($"{codeName} Conitoring started", System.Windows.Media.Brushes.LightBlue);
 
             StartBtn.IsEnabled = false;
             StartBtn.FontWeight = FontWeights.Normal;
 
             StopBtn.IsEnabled = true;
             StopBtn.FontWeight = FontWeights.Bold;
+
+            StartMonitorKDJ(period, code);
+            StartBackgroundWatchStockList();
 
             Logger.Info("Start monitoring stock: " + codeName);
         }
@@ -712,6 +743,10 @@ namespace StockTickerExtension2019
             _kdjCts?.Cancel();
             _kdjCts = null;
 
+            _backgroundWatchListCts?.Cancel();
+            _backgroundWatchListCts = null;
+            OtherStocksInfo.Text = "";
+
             UpdateStatus($"{_currentSnapshot?.Code} {_currentSnapshot?.Name} Conitoring stopped", System.Windows.Media.Brushes.Green);
             if (_uiTimer.IsEnabled)
                 _uiTimer.Stop();
@@ -719,19 +754,19 @@ namespace StockTickerExtension2019
             Logger.Info("Monitoring stoped!");
         }
 
-        private async System.Threading.Tasks.Task MonitorLoopAsync(string code, PeriodType period, CancellationToken token)
+        private async Task MonitorLoopAsync(StockTokenSource cts)
         {
             if (!_monitoring)
                 return;
 
-            while (!token.IsCancellationRequested)
+            while (!cts.Token.IsCancellationRequested)
             {
                 try
                 {
-                    var snap = await FetchKLinesSnapshot_Async(code, period);
+                    var snap = await FetchKLinesSnapshot_Async(cts._code, cts._period);
                     if (snap != null)
                     {
-                        snap.Code = code;
+                        snap.Code = cts._code;
                         while (_queue.Count > 0) _queue.TryDequeue(out _);
                         _queue.Enqueue(snap);
                     }
@@ -754,10 +789,10 @@ namespace StockTickerExtension2019
                     Logger.Error(ex.Message);
                 }
 
-                for (int i = 0; i < _fetchIntervalSeconds * 10; i++)
+                for (int i = 0; i < cts._fetchIntervalSeconds * 10; i++)
                 {
-                    if (token.IsCancellationRequested) break;
-                    await System.Threading.Tasks.Task.Delay(100, token);
+                    if (cts.Token.IsCancellationRequested) break;
+                    await Task.Delay(100, cts.Token);
                 }
             }
         }
@@ -1051,9 +1086,7 @@ namespace StockTickerExtension2019
 
                 UpdatePriceChart(snap);
                 UpdateMAText(snap);
-
                 UpdatePricesText(snap);
-
                 UpdateProfitDisplay();
 
 //                if (GetCurrentPeriod() == PeriodType.DailyK || GetCurrentPeriod() == PeriodType.WeeklyK || GetCurrentPeriod() == PeriodType.MonthlyK)
@@ -1072,6 +1105,73 @@ namespace StockTickerExtension2019
                         StopBtn_Click(null, null);
                     }
                 }
+            }
+        }
+
+        private async Task BackgroundWatchRun(BackGroundTockenSource bgts)
+        {
+            while (!bgts.Token.IsCancellationRequested && bgts._stockList != null && bgts._stockList.Count > 0)
+            {
+                int nCount = bgts._stockList.Count;
+                bgts._curIndex = (bgts._curIndex + 1) % nCount;
+                try
+                {
+                    var txt = bgts._stockList[bgts._curIndex].ToString();
+                    txt = txt.Substring(0, txt.IndexOf(' '));
+                    var info = StockInfoFetcher.FetchStockInfoAsync(txt, _stockType);
+                    if (info != null)
+                    {
+                        var sign = info.Result.Change >= 0 ? "↑" : "↓";
+                        var color = info.Result.Change >= 0 ? Brushes.Red : Brushes.Green;
+
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            OtherStocksInfo.Foreground = color;
+                            OtherStocksInfo.Text = $"{info.Result.Name} {info.Result.Price:F2} " +
+                                                   $"Open: {info.Result.Open:F2} High: {info.Result.High:F2} Low: {info.Result.Low:F2} {info.Result.Change:F2}% {sign}";
+                        }));
+                    }
+                    for (int i = 0; i < 5 * 10; i++)
+                    {
+                        if (bgts.Token.IsCancellationRequested) break;
+                        await Task.Delay(100, bgts.Token);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Error(ex.Message);
+                }
+            }
+        }
+
+        private void StartMonitorKDJ(PeriodType period, string code)
+        {
+            return;
+
+            if (period == PeriodType.Intraday)
+            {
+                _kdjCts = new CancellationTokenSource();
+                if (!_monitorOnce)
+                {
+                    _ = Task.Run(() => MonitorKDJAsync(code, _kdjCts.Token));
+                }
+            }
+        }
+
+        private void StartBackgroundWatchStockList()
+        {
+            if (_monitorOnce)
+                return;
+
+            if (_backgroundWatchListCts == null)
+            {
+                _backgroundWatchListCts = new BackGroundTockenSource();
+                _backgroundWatchListCts._stockList = CodeTextBox.Items.Cast<string>().ToList();
+                _ = Task.Run(() => BackgroundWatchRun(_backgroundWatchListCts));
+            }
+            else
+            {
+                _backgroundWatchListCts._stockList = CodeTextBox.Items.Cast<string>().ToList();
             }
         }
 
@@ -1989,14 +2089,14 @@ namespace StockTickerExtension2019
             }
         }
 
-        private async System.Threading.Tasks.Task MonitorKDJAsync(string code, CancellationToken token)
+        private async Task MonitorKDJAsync(string code, CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
                 try
                 {
                     // 每10分钟检测一次
-                    await System.Threading.Tasks.Task.Delay(TimeSpan.FromMinutes(10), token);
+                    await Task.Delay(TimeSpan.FromMinutes(10), token);
                     var kSnap = await FetchKLinesSnapshot_Async(code, PeriodType.DailyK);
                     CheckKdjGoldenCross(kSnap);
                 }
