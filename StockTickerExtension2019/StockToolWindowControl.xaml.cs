@@ -672,6 +672,10 @@ namespace StockTickerExtension2019
                         return CodeTextBox.Items.IndexOf(item);
                     }
                 }
+                if (item.ToString() == text)
+                {
+                    return CodeTextBox.Items.IndexOf(item);
+                }
             }
             return -1;
        }
@@ -1085,7 +1089,7 @@ namespace StockTickerExtension2019
                     }
                 }
 
-                if (string.IsNullOrEmpty(StatusText.Text))
+                if (string.IsNullOrEmpty(StatusText.Text) || StatusText.Text.Contains("Conitoring started"))
                 {
                     UpdateStatus($"Monitoring {snap.Code} {snap.Name}", System.Windows.Media.Brushes.Green);
                 }
