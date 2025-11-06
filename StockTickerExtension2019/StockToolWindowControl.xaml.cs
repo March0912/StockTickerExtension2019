@@ -662,12 +662,18 @@ namespace StockTickerExtension2019
 
         private int GetCodeTextBoxIndex(string text)
        {
-           foreach (var item in CodeTextBox.Items)
-           {
-               if (item.ToString().Contains(text))
-                   return CodeTextBox.Items.IndexOf(item);
-           }
-           return -1;
+            foreach (var item in CodeTextBox.Items)
+            {
+                var list = item.ToString().Split(' ');
+                foreach (var str in list)
+                {
+                    if (str == text)
+                    {
+                        return CodeTextBox.Items.IndexOf(item);
+                    }
+                }
+            }
+            return -1;
        }
 
         private void StartMonitoring(bool bRestart = true, string text = "")
@@ -2219,7 +2225,7 @@ namespace StockTickerExtension2019
                     CodeTextBox.Text += " " + info.StockType.ToString();
                 }
                 UpdateStockType(info.StockType);
-                StartMonitoring();
+                StartMonitoring(false);
             };
 
             var transform = CodeTextBox.TransformToAncestor(this);
