@@ -446,7 +446,7 @@ namespace StockTickerExtension2019
             var bgBrush = new SolidColorBrush(bgColor);
             var bdBrush = new SolidColorBrush(bdColor);
 
-            _isBlackTheme = bgColor0.Name.ToLower() == "ff252526";
+            _isBlackTheme = Tool.isDarkTheme(bgColor0.R, bgColor0.G, bgColor0.B);
 
             // 设置当前控件
             if (obj is Control ctrl)
