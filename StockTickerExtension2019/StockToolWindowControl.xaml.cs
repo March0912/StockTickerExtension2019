@@ -88,17 +88,27 @@ namespace StockTickerExtension2019
                 DatePickerControl.SelectedDate = DateTime.Today;
 
                 MA5.IsEnabled = false;
+                MA5.Content = "MA5: --";
+
                 MA10.IsEnabled = false;
+                MA10.Content = "MA10: --";
+
                 MA20.IsEnabled = false;
+                MA20.Content = "MA20: --";
+
                 MA30.IsEnabled = false;
+                MA30.Content = "MA30: --";
+
                 MA60.IsEnabled = false;
+                MA60.Content = "MA60: --";
+
 
                 WpfPlotPrice.Plot.Clear();                
                 WpfPlotPrice.Height = 240;
                 WpfPlotPrice.Configuration.ScrollWheelZoom = false;
                 WpfPlotPrice.Configuration.LeftClickDragPan = false;
 
-                WpfPlotVolume.Visibility = Visibility.Hidden;
+                WpfPlotVolume.Visibility = Visibility.Visible;
                 WpfPlotVolume.Configuration.ScrollWheelZoom = false;
                 WpfPlotVolume.Configuration.LeftClickDragPan = false;
             }
@@ -418,17 +428,33 @@ namespace StockTickerExtension2019
             if (ticks.Count > 0)
                 WpfPlotPrice.Plot.XTicks(ticks.ToArray(), labels.ToArray());
 
-            WpfPlotVolume.Visibility = Visibility.Hidden;
+            WpfPlotVolume.Visibility = Visibility.Visible;
             Logger.Info("InitPriceChat finished");
         }
 
         private void InitUIColor()
         {
+            RefreshTheme();
             this.Loaded += (s, e) =>
             {
                 ApplyThemeToAllControls(this);
-                VSColorTheme.ThemeChanged += _ => Dispatcher.Invoke(() => ApplyThemeToAllControls(this));
+                VSColorTheme.ThemeChanged += _ => Dispatcher.Invoke(() =>
+                {
+                    RefreshTheme();
+                    ApplyThemeToAllControls(this);
+
+                    if (!IsMonitoring())
+                    {
+                        StartMonitoring();
+                    }
+                });
             };
+        }
+
+        private void RefreshTheme()
+        {
+            var bgColor = VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowBackgroundColorKey);
+            _isBlackTheme = Tool.isDarkTheme(bgColor.R, bgColor.G, bgColor.B);
         }
 
         private void ApplyThemeToAllControls(DependencyObject obj)
@@ -445,8 +471,6 @@ namespace StockTickerExtension2019
             var fgBrush = new SolidColorBrush(fgColor);
             var bgBrush = new SolidColorBrush(bgColor);
             var bdBrush = new SolidColorBrush(bdColor);
-
-            _isBlackTheme = Tool.isDarkTheme(bgColor0.R, bgColor0.G, bgColor0.B);
 
             // 设置当前控件
             if (obj is Control ctrl)
@@ -1086,10 +1110,6 @@ namespace StockTickerExtension2019
                     UpdatePricesText(snap);
                     UpdateProfitDisplay();
 
-                    //                if (GetCurrentPeriod() == PeriodType.DailyK || GetCurrentPeriod() == PeriodType.WeeklyK || GetCurrentPeriod() == PeriodType.MonthlyK)
-                    //                {
-                    //                    CheckKdjGoldenCross(snap);
-                    //                }
                     if (_monitorOnce)
                     {
                         StopBtn_Click(null, null);
@@ -1206,6 +1226,7 @@ namespace StockTickerExtension2019
 
             var crosshair = _crosshair; // 缓存旧的十字线
             WpfPlotPrice.Plot.Clear();
+            WpfPlotVolume.Plot.Clear();
 
             List<double> safePrices = new List<double>();
             List<double> safeAvgPrices = new List<double>();
@@ -1309,7 +1330,9 @@ namespace StockTickerExtension2019
                 }
             }
             if (ticks.Count > 0)
+            {
                 WpfPlotPrice.Plot.XTicks(ticks.ToArray(), labels.ToArray());
+            }
 
             // 坐标轴名称
             WpfPlotPrice.Plot.YLabel("Price");
@@ -1333,7 +1356,78 @@ namespace StockTickerExtension2019
             // 上下各留出10%的空间（总共扩大20%）
             double priceRange = maxPrice - minPrice;
             WpfPlotPrice.Plot.SetAxisLimitsY(minPrice - priceRange * 0.1, maxPrice + priceRange * 0.1 + 0.01, yAxisIndex: 0);
+            WpfPlotPrice.Plot.YAxis.TickLabelFormat("F2", false);
 
+            if (validPrices.Count > 0)
+            {
+                // 绘制MACD曲线
+                WpfPlotVolume.Plot.SetAxisLimits(xMin: 0, xMax: _tradingMinutes.Count - 1);
+                WpfPlotVolume.Plot.YLabel("MACD");
+                WpfPlotVolume.Plot.AxisAuto(horizontalMargin: 0, verticalMargin: 0);
+
+                var macdItems = Tool.CalcMacd(snap.Prices.ToList());
+                var difList = macdItems.Select(item => item.Dif).ToList();
+                var deaList = macdItems.Select(item => item.Dea).ToList();
+                var macdList = macdItems.Select(item => item.Macd).ToList();
+
+                WpfPlotVolume.Plot.AddScatter(validPriceIndices.ToArray(), difList.ToArray(), color: _isBlackTheme ? System.Drawing.Color.White : System.Drawing.Color.Black, lineWidth: 1.8f, markerSize: 0.0f);
+                WpfPlotVolume.Plot.AddScatter(validPriceIndices.ToArray(), deaList.ToArray(), color: System.Drawing.Color.FromArgb(255, 127, 14), lineWidth: 1.8f, markerSize: 0.0f);
+
+                double maxMacd = difList.Max();
+                double minMacd = difList.Min();
+                double macdRange = maxMacd - minMacd;
+                WpfPlotVolume.Plot.SetAxisLimitsY(minMacd - macdRange * 0.1, maxMacd + macdRange * 0.1 + 0.01, yAxisIndex: 0);
+                WpfPlotVolume.Plot.YAxis.TickLabelFormat("F2", false);
+                WpfPlotVolume.Plot.YAxis2.Label("   ");
+                WpfPlotVolume.Plot.YAxis2.TickLabelFormat("F2", false);
+                WpfPlotVolume.Plot.SetAxisLimitsY(minMacd - macdRange * 0.1, maxMacd + macdRange * 0.1 + 0.01, yAxisIndex: 1);
+
+                // 设置右轴显示，仅仅是为了使上下对齐一点点
+                WpfPlotVolume.Plot.YAxis2.Ticks(true);
+                WpfPlotVolume.Plot.YAxis2.Color(System.Drawing.Color.Gray);
+
+                if (ticks.Count > 0)
+                {
+                    WpfPlotVolume.Plot.XTicks(ticks.ToArray(), labels.ToArray());
+                }
+
+                var fullBuyMacds = new double[macdList.Count];
+                var fullSellMacds = new double[macdList.Count];
+                {
+                    // 将有效成交量数据填充到对应的时间索引位置
+                    for (int i = 0; i < macdList.Count; i++)
+                    {
+                        if (macdList[i] >= 0)
+                        {
+                            fullBuyMacds[i] = macdList[i];
+                            fullSellMacds[i] = 0;
+                        }
+                        else
+                        {
+                            fullBuyMacds[i] = 0;
+                            fullSellMacds[i] = macdList[i];
+                        }
+                    }
+                }
+
+                var xs2 = Enumerable.Range(0, macdList.Count).Select(i => (double)i).ToArray();
+
+                var buyMacdBar = WpfPlotVolume.Plot.AddBar(fullBuyMacds, xs2);
+                buyMacdBar.FillColor = System.Drawing.Color.Red;
+                buyMacdBar.FillColorNegative = System.Drawing.Color.Red;
+                buyMacdBar.YAxisIndex = 0;
+                buyMacdBar.BarWidth = 0.5;
+                buyMacdBar.BorderLineWidth = 0;
+
+                var sellMacdBar = WpfPlotVolume.Plot.AddBar(fullSellMacds, xs2);
+                sellMacdBar.FillColor = System.Drawing.Color.FromArgb(200, 0, 255, 0);
+                sellMacdBar.FillColorNegative = System.Drawing.Color.FromArgb(200, 0, 255, 0);
+                sellMacdBar.YAxisIndex = 0;
+                sellMacdBar.BarWidth = 0.5;
+                sellMacdBar.BorderLineWidth = 0;
+
+                WpfPlotVolume.Refresh();
+            }
             // 调整右侧成交量轴范围
             double maxVolume = Math.Max(fullBuyVolumes.DefaultIfEmpty(0).Max(),
                                         fullSellVolumes.DefaultIfEmpty(0).Max());
@@ -1652,6 +1746,10 @@ namespace StockTickerExtension2019
             WpfPlotVolume.Plot.Clear();
             WpfPlotVolume.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
             WpfPlotVolume.Visibility = Visibility.Visible;
+            WpfPlotVolume.Plot.YAxis.TickLabelFormat("", false);
+            WpfPlotVolume.Plot.YAxis2.TickLabelFormat("", false);
+            WpfPlotVolume.Plot.YAxis2.Ticks(false);
+            WpfPlotVolume.Plot.YAxis2.Label("");
 
             // 将成交量转换为“手”（如果你的数据是股数），这里除以100；若已经是手则把 /100 去掉
             double[] volsScaled = snap.Volumes?.Select(v => v / 100).ToArray() ?? new double[count];
