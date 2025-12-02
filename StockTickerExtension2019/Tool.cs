@@ -353,6 +353,9 @@ namespace StockTickerExtension2019
         }
         static public (List<double> ticks, List<string> labels) GenerateTimeAxisLabels(PeriodType period, DateTime[] dates, DateTime currentDate)
         {
+            if (dates == null || dates.Length == 0)
+                return (default, default);
+
             var dateCount = dates.Length;
             var ticks = new List<double>();
             var labels = new List<string>();
