@@ -1213,7 +1213,7 @@ namespace StockTickerExtension2019
 
         private void DrawIntradayChart(StockSnapshot snap)
         {
-            if (!_monitoring || snap.Prices == null || snap.Prices.Length == 0 || snap.Volumes == null || snap.Volumes.Length == 0)
+            if (!_monitoring || snap == null || snap.Prices == null || snap.Prices.Length == 0 || snap.Volumes == null || snap.Volumes.Length == 0)
                 return;
 
             var crosshair = _crosshair; // 缓存旧的十字线
@@ -1438,7 +1438,7 @@ namespace StockTickerExtension2019
 
         private void DrawKLineChart(StockSnapshot snap)
         {
-            if (!_monitoring || snap.Prices == null || snap.Prices.Length == 0 || snap.KLineDates == null || snap.KLineDates.Length == 0)
+            if (!_monitoring || snap == null || snap.Prices == null || snap.Prices.Length == 0 || snap.KLineDates == null || snap.KLineDates.Length == 0)
                 return;
 
             var crosshair = _crosshair; // 缓存旧的十字线
