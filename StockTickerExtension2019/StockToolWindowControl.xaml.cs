@@ -1474,6 +1474,11 @@ namespace StockTickerExtension2019
                         validPriceIndices.Add(i);
                     }
                 }
+                if (validPriceIndices.Count == 0)
+                {
+                    return;
+                }
+
                 WpfPlotChart2.Plot.AddScatter(validPriceIndices.ToArray(), difList.ToArray(), color: _isBlackTheme ? System.Drawing.Color.White : System.Drawing.Color.Black, lineWidth: 1.8f, markerSize: 0.0f);
                 WpfPlotChart2.Plot.AddScatter(validPriceIndices.ToArray(), deaList.ToArray(), color: System.Drawing.Color.FromArgb(255, 127, 14), lineWidth: 1.8f, markerSize: 0.0f);
 
