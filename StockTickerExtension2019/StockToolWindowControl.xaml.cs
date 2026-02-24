@@ -69,11 +69,9 @@ namespace StockTickerExtension2019
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            if (false)
-            {
-                StopMonitoring();
-                _ownerPane.ClearStatusInfo();
-            }
+            return;
+            StopMonitoring();
+            _ownerPane.ClearStatusInfo();
         }
 
         private void PeriodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -379,13 +377,13 @@ namespace StockTickerExtension2019
                 CodeTextBox.Items.Add(code);
             }
 
-            CodeTextBox.Text = _configManager.Config.CurrentStock;
+            CodeTextBox.Text = _configManager.Config.CurrentStock ?? string.Empty;
             StockMarket sm = StockMarket.StockA;
-            if (CodeTextBox.Text.EndsWith(StockMarket.StockHK.ToString()))
+            if (CodeTextBox.Text.EndsWith(StockMarket.StockHK.ToString(), StringComparison.Ordinal))
             {
                 sm = StockMarket.StockHK;
             }
-            else if (CodeTextBox.Text.EndsWith(StockMarket.StockUS.ToString()))
+            else if (CodeTextBox.Text.EndsWith(StockMarket.StockUS.ToString(), StringComparison.Ordinal))
             {
                 sm = StockMarket.StockUS;
             }
