@@ -35,16 +35,24 @@ namespace StockTickerExtension2019
             if (changePercent < 0)
             {
                 arrow = "↘️";
+                if (changePercent <= -19.95)
+                {
+                    arrow = "＼＿＿＿＿＿";
+                }
                 _color = 0x0000FF00;
             }
             else if (changePercent > 0)
             {
                 arrow = "↗️";
+                if (changePercent >= 19.95)
+                {
+                    arrow = "／￣￣￣￣￣";
+                }
                 _color = 0x000000FF;
             }
             else
             {
-                arrow = "";
+                arrow = "-----";
                 _color = 0x00FFFFFF;
             }
 

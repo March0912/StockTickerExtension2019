@@ -59,10 +59,6 @@ namespace StockTickerExtension2019
             Logger.Info("StockWather initialized successed!");
         }
 
-        public bool IsAutoStopWhenClosed()
-        {
-            return AutoStopCheckBox.IsChecked == true;
-        }
         public bool IsMonitoring()
         { 
            return _monitoring;
@@ -73,7 +69,7 @@ namespace StockTickerExtension2019
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            if (AutoStopCheckBox.IsChecked == true)
+            if (false)
             {
                 StopMonitoring();
                 _ownerPane.ClearStatusInfo();
@@ -278,13 +274,51 @@ namespace StockTickerExtension2019
             }
         }
 
+        private void MoveUpBtn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            int currentIndex = CodeTextBox.SelectedIndex;
+
+            if (currentIndex <= 0) return;
+
+            var item = CodeTextBox.Items[currentIndex];
+            CodeTextBox.Items.RemoveAt(currentIndex);
+            CodeTextBox.Items.Insert(currentIndex - 1, item);
+            CodeTextBox.SelectedIndex = currentIndex - 1;
+
+            if (_backgroundWatchListCts != null)
+            {
+                var text = CodeTextBox.Text?.Trim();
+                currentIndex = _backgroundWatchListCts._stockList.IndexOf(text);
+                _backgroundWatchListCts._stockList.Remove(text);
+                _backgroundWatchListCts._stockList.Insert(currentIndex - 1, text);
+            }
+        }
+        private void MoveDownBtn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            int currentIndex = CodeTextBox.SelectedIndex;
+            if (currentIndex < 0 || currentIndex >= CodeTextBox.Items.Count - 1) return;
+
+            var item = CodeTextBox.Items[currentIndex];
+            CodeTextBox.Items.RemoveAt(currentIndex);
+            CodeTextBox.Items.Insert(currentIndex + 1, item);
+            CodeTextBox.SelectedIndex = currentIndex + 1;
+
+            if (_backgroundWatchListCts != null)
+            {
+                var text = CodeTextBox.Text?.Trim();
+                currentIndex = _backgroundWatchListCts._stockList.IndexOf(text);
+                _backgroundWatchListCts._stockList.Remove(text);
+                _backgroundWatchListCts._stockList.Insert(currentIndex + 1, text);
+            }
+        }
+
+
         private void Init()
         {
             _configManager.Load();
 
             SharesBox.Text = _configManager.Config.CurrentShares.ToString();
             CostBox.Text = _configManager.Config.CurrentCostPrices.ToString();
-            AutoStopCheckBox.IsChecked = _configManager.Config.AutoStopOnClose;
             MA5.IsChecked = _configManager.Config.MA5Checked;
             MA10.IsChecked = _configManager.Config.MA10Checked;
             MA20.IsChecked = _configManager.Config.MA20Checked;
@@ -293,6 +327,8 @@ namespace StockTickerExtension2019
 
             AddBtn.Click += AddBtn_Click;
             RemoveBtn.Click += RemoveBtn_Click;
+            MoveUpBtn.Click += MoveUpBtn_Click;
+            MoveDownBtn.Click += MoveDownBtn_Click;
             StartBtn.Click += StartBtn_Click;
             StartBtn.Content = !Tool.IsTradingTime(_stockType, DateTime.Now) ? "Get" : "Start";
             StopBtn.Click += StopBtn_Click;
@@ -2350,7 +2386,6 @@ namespace StockTickerExtension2019
         public void SaveConfig()
         {
             _configManager.Config.CurrentStock = CodeTextBox.Text.Trim();
-            _configManager.Config.AutoStopOnClose = AutoStopCheckBox.IsChecked == true;
 
             int shares = 0;
             int.TryParse(SharesBox.Text, out shares);
