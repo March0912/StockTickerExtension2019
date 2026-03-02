@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -310,13 +311,152 @@ namespace StockTickerExtension2019
             }
         }
 
+        private void SharesBox_PreviewInput(object sender, TextCompositionEventArgs e)
+        {
+            e.Handled = !e.Text.All(char.IsDigit);
+        }
+        private void SharesBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_currentSnapshot != null)
+            {
+                if (string.IsNullOrEmpty(SharesBox.Text))
+                {
+                    return;
+                }
+                var code = _currentSnapshot.Code;
+
+                int shares = int.Parse(SharesBox.Text);
+                var item = _configManager.Config.CostList.Find(x => x.Stock == code);
+                if (item != null)
+                {
+                    item.Shares = shares;
+                }
+                else
+                {
+                    var costItem = new CostData();
+                    costItem.Stock = code;
+                    costItem.Shares = shares;
+                    _configManager.Config.CostList.Add(costItem);
+                }
+            }
+        }
+        private void SharesBox_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && _currentSnapshot != null)
+            {
+                if (string.IsNullOrEmpty(SharesBox.Text))
+                {
+                    return;
+                }
+                var code = _currentSnapshot.Code;
+                int shares = int.Parse(SharesBox.Text);
+                var item = _configManager.Config.CostList.Find(x => x.Stock == code);
+                if (item != null)
+                {
+                    item.Shares = shares;
+                }
+                else
+                {
+                    var costItem = new CostData();
+                    costItem.Stock = code;
+                    costItem.Shares = shares;
+                    _configManager.Config.CostList.Add(costItem);
+                }
+            }
+        }
+
+        private void SharesBox_Paste(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(DataFormats.Text))
+            {
+                string text = (string)e.DataObject.GetData(DataFormats.Text);
+                if (!text.All(char.IsDigit) || !text.EndsWith("00"))
+                {
+                    e.CancelCommand();
+                }
+            }
+        }
+
+        private void CostBox_PreviewInput(object sender, TextCompositionEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            string newText = textBox.Text.Insert(textBox.SelectionStart, e.Text);
+            bool isNumeric = double.TryParse(newText, out _) || newText == "." || newText == "-";
+            e.Handled = !isNumeric;
+        }
+
+        private void CostBox_Paste(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(DataFormats.Text))
+            {
+                string text = (string)e.DataObject.GetData(DataFormats.Text);
+                Regex regex = new Regex("[^0-9.]+");
+                if (regex.IsMatch(text))
+                {
+                    e.CancelCommand();
+                }
+                else if (text.Count(x => x == '.') > 1)
+                {
+                    e.CancelCommand();
+                }
+            }
+        }
+
+        private void CostBox_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && _currentSnapshot != null)
+            {
+                var code = _currentSnapshot.Code;
+                if (!string.IsNullOrEmpty(CostBox.Text))
+                {
+                    float cost = float.Parse(CostBox.Text);
+                    var item = _configManager.Config.CostList.Find(x => x.Stock == code);
+                    if (item != null)
+                    {
+                        item.CostPrice = cost;
+                    }
+                    else
+                    {
+                        var costItem = new CostData();
+                        costItem.Stock = code;
+                        costItem.CostPrice = cost;
+                        _configManager.Config.CostList.Add(costItem);
+                    }
+                }
+            }
+        }
+        private void CostBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_currentSnapshot != null)
+            {
+                var code = _currentSnapshot.Code;
+                if (!string.IsNullOrEmpty(CostBox.Text))
+                {
+                    float cost = float.Parse(CostBox.Text);
+                    var item = _configManager.Config.CostList.Find(x => x.Stock == code);
+                    if (item != null)
+                    {
+                        item.CostPrice = cost;
+                    }
+                    else
+                    {
+                        var costItem = new CostData();
+                        costItem.Stock = code;
+                        costItem.CostPrice = cost;
+                        _configManager.Config.CostList.Add(costItem);
+                    }
+                }
+            }
+        }
 
         private void Init()
         {
             _configManager.Load();
 
-            SharesBox.Text = _configManager.Config.CurrentShares.ToString();
-            CostBox.Text = _configManager.Config.CurrentCostPrices.ToString();
+            string stock = _configManager.Config.CurrentStock;
+            string code = stock.Split(' ')[0];
+            UpdateCostShares(code);
+
             MA5.IsChecked = _configManager.Config.MA5Checked;
             MA10.IsChecked = _configManager.Config.MA10Checked;
             MA20.IsChecked = _configManager.Config.MA20Checked;
@@ -331,6 +471,16 @@ namespace StockTickerExtension2019
             StartBtn.Content = !Tool.IsTradingTime(_stockType, DateTime.Now) ? "Get" : "Start";
             StopBtn.Click += StopBtn_Click;
             StopBtn.IsEnabled = false;
+
+            SharesBox.PreviewTextInput += SharesBox_PreviewInput;
+            SharesBox.KeyUp += SharesBox_KeyUp;
+            SharesBox.LostFocus += SharesBox_LostFocus;
+            DataObject.AddPastingHandler(SharesBox, SharesBox_Paste);
+
+            CostBox.PreviewTextInput += CostBox_PreviewInput;
+            DataObject.AddPastingHandler(CostBox, CostBox_Paste);
+            CostBox.LostFocus += CostBox_LostFocus;
+            CostBox.KeyUp += CostBox_KeyUp;
 
             MA5.IsEnabled = false;
             MA10.IsEnabled = false;
@@ -1123,6 +1273,7 @@ namespace StockTickerExtension2019
                     UpdateMAText(snap);
                     UpdatePricesText(snap);
                     UpdateProfitDisplay();
+                    UpdateCostShares(snap.Code);
 
                     if (_monitorOnce)
                     {
@@ -2385,14 +2536,6 @@ namespace StockTickerExtension2019
         {
             _configManager.Config.CurrentStock = CodeTextBox.Text.Trim();
 
-            int shares = 0;
-            int.TryParse(SharesBox.Text, out shares);
-            _configManager.Config.CurrentShares = shares;
-
-            float cost = 0.0f;
-            float.TryParse(CostBox.Text, out cost);
-            _configManager.Config.CurrentCostPrices = cost;
-
             _configManager.Config.MA5Checked = MA5.IsChecked == true;
             _configManager.Config.MA10Checked = MA10.IsChecked == true;
             _configManager.Config.MA20Checked = MA20.IsChecked == true;
@@ -2405,6 +2548,21 @@ namespace StockTickerExtension2019
                 _configManager.Config.WatchStockList.Add(item.ToString());
             }
             _configManager.Save();
+        }
+
+        public void UpdateCostShares(string stockCode)
+        {
+            var item = _configManager.Config.CostList.Find(x => x.Stock == stockCode);
+            if (item != null)
+            {
+                SharesBox.Text = item.Shares.ToString();
+                CostBox.Text = item.CostPrice.ToString();
+            }
+            else
+            {
+                SharesBox.Text = "0";
+                CostBox.Text = "0";
+            }
         }
 
         private async Task<List<StockInfo>> SearchStocks_Async(string keyword)
@@ -2453,7 +2611,7 @@ namespace StockTickerExtension2019
             _fuzzySearchDialog?.Close();
             _fuzzySearchDialog = new FuzzySearchDialog(list)
             {
-                Owner = Window.GetWindow(this)
+                Owner = System.Windows.Window.GetWindow(this)
             };
 
             _fuzzySearchDialog.StockSelected += info =>
