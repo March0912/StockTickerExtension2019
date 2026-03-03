@@ -1533,6 +1533,8 @@ namespace StockTickerExtension2019
                                             fullSellVolumes.DefaultIfEmpty(0).Max());
                 WpfPlotChart1.Plot.SetAxisLimitsY(0, maxVolume * 1.3 + 0.01, yAxisIndex: 1); // 上限提高20%
 
+                DrawCostLine();
+
                 if (crosshair != null)
                 {
                     _crosshair = WpfPlotChart1.Plot.AddCrosshair(crosshair.X, crosshair.Y);
@@ -1590,6 +1592,7 @@ namespace StockTickerExtension2019
                 WpfPlotChart1.Plot.YLabel("Price");
 
                 DrawAVGLines(snap);
+                DrawCostLine();
 
                 if (crosshair != null)
                 {
@@ -1887,6 +1890,20 @@ namespace StockTickerExtension2019
                     // fallback
                     WpfPlotChart1.Plot.AxisAuto();
                 }
+            }
+        }
+        private void DrawCostLine()
+        {
+            if (!string.IsNullOrEmpty(CostBox.Text))
+            {
+                float cost = float.Parse(CostBox.Text);
+                var hLine = WpfPlotChart1.Plot.AddHorizontalLine(cost);
+                // 设置样式
+                hLine.LineStyle = ScottPlot.LineStyle.DashDotDot;
+                hLine.Color = _isBlackTheme ? System.Drawing.Color.White : System.Drawing.Color.Black;
+                hLine.LineWidth = 1;
+                // 可选：添加标签
+                //hLine.Label = "成本线";
             }
         }
 
