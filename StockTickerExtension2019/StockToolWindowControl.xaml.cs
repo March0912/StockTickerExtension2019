@@ -1091,7 +1091,7 @@ namespace StockTickerExtension2019
                     }
                 }
             }
-            double lastPrice = prices.Last();
+            double lastPrice = prices?.Last() ?? 0;
             changePercents[0] = 0;
             for (int i = 1; i < count; i++)
             {
@@ -2277,9 +2277,9 @@ namespace StockTickerExtension2019
                 var prices = snap.Prices.Where(p => !double.IsNaN(p)).ToArray();
                 if (prices != null && prices.Length > 0)
                 {
-                    OpenPriceText.Text = prices.First().ToString("F2");
-                    HighestPriceText.Text = prices.Max().ToString("F2");
-                    LowestPriceText.Text = prices.Min().ToString("F2");
+                    OpenPriceText.Text = prices?.First().ToString("F2") ?? "";
+                    HighestPriceText.Text = prices?.Max().ToString("F2") ?? "";
+                    LowestPriceText.Text = prices?.Min().ToString("F2") ?? "";
                 }
             }
             else
@@ -2473,9 +2473,9 @@ namespace StockTickerExtension2019
                     var prices = _currentSnapshot.Prices.Where(p => !double.IsNaN(p)).ToArray();
                     if (prices != null && prices.Length > 0)
                     {
-                        OpenPriceText.Text = prices.First().ToString();
-                        HighestPriceText.Text = prices.Max().ToString();
-                        LowestPriceText.Text = prices.Min().ToString();
+                        OpenPriceText.Text = prices?.First().ToString() ?? "";
+                        HighestPriceText.Text = prices?.Max().ToString() ?? "";
+                        LowestPriceText.Text = prices?.Min().ToString() ?? "";
                     }
 
                     var val = _currentSnapshot.ChangePercents != null ? _currentSnapshot.ChangePercents.Last() : 0;
@@ -2485,14 +2485,15 @@ namespace StockTickerExtension2019
                 }
                 else
                 {
-                    var open = _currentSnapshot.OpenPrice.Last();
-                    var high = _currentSnapshot.HighPrices.Last();
-                    var low = _currentSnapshot.LowPrices.Last();
+                    double open = _currentSnapshot.OpenPrice?.LastOrDefault() ?? 0;
+                    double high = _currentSnapshot.HighPrices?.LastOrDefault() ?? 0;
+                    double low = _currentSnapshot.LowPrices?.LastOrDefault() ?? 0;
+                    double val = _currentSnapshot.ChangePercents?.LastOrDefault() ?? 0;
 
                     OpenPriceText.Text = open.ToString();
                     HighestPriceText.Text = high.ToString();
                     LowestPriceText.Text = low.ToString();
-                    var val = _currentSnapshot.ChangePercents != null ? _currentSnapshot.ChangePercents.Last() : 0;
+
                     ChangePercentText.Text = $"{val:F2}%";
                     var foreground = val > 0 ? System.Windows.Media.Brushes.Red : System.Windows.Media.Brushes.Green;
                     ChangePercentText.Foreground = foreground;
