@@ -42,6 +42,8 @@ namespace StockTickerExtension2019
         private bool _monitorOnce = false;
         private bool _isBlackTheme = false;
         private bool _isEditingCodeText = false;
+        private bool _isShareBoxEditing = false;
+        private bool _isCostBoxEditing = false;
         private bool _refreshNow = false;
 
         private DateTime _currentDate;
@@ -339,6 +341,7 @@ namespace StockTickerExtension2019
                     _configManager.Config.CostList.Add(costItem);
                 }
             }
+            _isShareBoxEditing = false;
         }
         private void SharesBox_KeyUp(object sender, KeyEventArgs e)
         {
@@ -447,6 +450,7 @@ namespace StockTickerExtension2019
                     }
                 }
             }
+            _isCostBoxEditing = false;
         }
 
         private void Init()
@@ -474,11 +478,13 @@ namespace StockTickerExtension2019
 
             SharesBox.PreviewTextInput += SharesBox_PreviewInput;
             SharesBox.KeyUp += SharesBox_KeyUp;
+            SharesBox.GotFocus += (s, e) => { _isShareBoxEditing = true; };
             SharesBox.LostFocus += SharesBox_LostFocus;
             DataObject.AddPastingHandler(SharesBox, SharesBox_Paste);
 
             CostBox.PreviewTextInput += CostBox_PreviewInput;
             DataObject.AddPastingHandler(CostBox, CostBox_Paste);
+            CostBox.GotFocus += (s, e) => { _isCostBoxEditing = true; };
             CostBox.LostFocus += CostBox_LostFocus;
             CostBox.KeyUp += CostBox_KeyUp;
 
@@ -2587,8 +2593,14 @@ namespace StockTickerExtension2019
             var item = _configManager.Config.CostList.Find(x => x.Stock == stockCode);
             if (item != null)
             {
-                SharesBox.Text = item.Shares.ToString();
-                CostBox.Text = item.CostPrice.ToString();
+                if (!_isShareBoxEditing)
+                {
+                    SharesBox.Text = item.Shares.ToString();
+                }
+                if (!_isCostBoxEditing)
+                {
+                    CostBox.Text = item.CostPrice.ToString();
+                }
             }
             else
             {
