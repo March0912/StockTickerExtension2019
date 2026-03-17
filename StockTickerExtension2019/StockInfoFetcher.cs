@@ -11,6 +11,7 @@ namespace StockTickerExtension2019
     {
         public partial class StockCurrentInfo
         {
+            public string Code;
             public string Name;
             public double Price;
             public double Open;
@@ -45,6 +46,7 @@ namespace StockTickerExtension2019
 
                 return new StockCurrentInfo()
                 {
+                    Code = code,
                     Name = name,
                     Price = price,
                     Open = open,
