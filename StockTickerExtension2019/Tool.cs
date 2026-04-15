@@ -601,7 +601,6 @@ namespace StockTickerExtension2019
             }
             return (beginStr, endStr);
         }
-
         static public void TakeSnapshot(UserControl control, string filePath)
         {
             if (control == null)
@@ -638,6 +637,14 @@ namespace StockTickerExtension2019
             {
                 encoder.Save(fs);
             }
+        }
+        static public string FormatAmount(double amount)
+        {
+            if (amount >= 1e8)
+                return $"{amount / 1e8:N2} 亿";
+            if (amount >= 1e4)
+                return $"{amount / 1e4:N2} 万";
+            return $"{amount:N2}";
         }
     }
 
@@ -678,6 +685,12 @@ namespace StockTickerExtension2019
         /// 卖出成交量
         /// </summary>
         public double[] SellVolumes { get; set; }
+        
+        /// <summary>
+        /// 总成交额
+        /// </summary>
+        public double[] Amounts { get; set; }
+        /// <summary>
         /// <summary>
         /// K线日期
         /// </summary>
