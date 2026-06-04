@@ -760,6 +760,11 @@ namespace StockTickerExtension2019
     {
         public List<string> _stockList;
         public int _curIndex = -1;
+
+        public BackGroundTockenSource()
+        {
+            _stockList = new List<string>();
+        }
     }
 
 }
