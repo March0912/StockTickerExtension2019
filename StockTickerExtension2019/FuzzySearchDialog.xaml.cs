@@ -26,7 +26,20 @@ namespace StockTickerExtension2019
                     DialogResult = false;
                     this.Close();
                 }
-            };
+				else if (e.Key == Key.Up || e.Key == Key.Down)
+				{
+					// 当按下上下键的时候，自动滚动到选中的项
+					var idx = ResultList.SelectedIndex;
+					if (idx >= 0 && idx < ResultList.Items.Count)
+					{
+						ResultList.ScrollIntoView(ResultList.Items[idx]);
+					}
+				}
+				else if (e.Key == Key.Enter)
+				{
+					ListBox_MouseDoubleClickEvent(null, null);
+				}
+			};
 			this.Loaded += FuzzySearchDialog_Loaded;
 			this.Closed += FuzzySearchDialog_Closed;
 
