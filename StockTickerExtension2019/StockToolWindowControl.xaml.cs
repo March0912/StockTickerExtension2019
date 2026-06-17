@@ -25,6 +25,9 @@ namespace StockTickerExtension2019
     {
         const string s_trendsURL = "https://push2his.eastmoney.com/api/qt/stock/trends2/get";
         const string s_klineURL = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
+        const string s_profileA_URL = "https://emweb.securities.eastmoney.com/PC_HSF10/CoreConception/PageAjax?code=";
+        //const string s_profileH_URL = "https://emweb.securities.eastmoney.com/PC_HKF10/pages/home/index.html?code=";
+        //const string s_profileUS_URL = "https://emweb.securities.eastmoney.com/PC_HSF10/CoreConception/PageAjax?code=";
 
         private readonly StockToolWindow _ownerPane;
         private readonly ConfigManager _configManager = new ConfigManager();
@@ -52,6 +55,7 @@ namespace StockTickerExtension2019
         private Crosshair _crosshair;
         private FuzzySearchDialog _fuzzySearchDialog;
         private ScottPlot.Plottable.Text _infoText;
+        private Dictionary<string, ProfileInfo> _profileMaps;
 
         public StockToolWindowControl(ToolWindowPane owner)
         {
@@ -218,6 +222,11 @@ namespace StockTickerExtension2019
                             {
                                 UpdateStockType(results[0].StockType);
                                 var str = results[0].Code + " " + results[0].Name;
+                                CodeTextBox.Text = str;
+                                if (results[0].StockType == StockMarket.StockHK || results[0].StockType == StockMarket.StockUS)
+                                {
+                                    CodeTextBox.Text += " " + results[0].StockType.ToString();
+                                }
                                 StartMonitoring(str);
                             }
                             else
@@ -485,6 +494,9 @@ namespace StockTickerExtension2019
             CostBox.LostFocus += CostBox_LostFocus;
             CostBox.KeyUp += CostBox_KeyUp;
 
+            ProfileBtn.Click += ProfileBtn_Click;
+            _profileMaps = new Dictionary<string, ProfileInfo>();
+
             MA5.IsEnabled = false;
             MA10.IsEnabled = false;
             MA20.IsEnabled = false;
@@ -514,6 +526,48 @@ namespace StockTickerExtension2019
             _uiTimer = new DispatcherTimer(TimeSpan.FromSeconds(0.1), DispatcherPriority.Normal, UiTimer_Tick, Dispatcher.CurrentDispatcher);
             _uiTimer.Stop();
             Logger.Info("StockToolWindowControl init finished");
+        }
+        private async void ProfileBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (CodeTextBox.Text.Length > 0)
+            {
+                var code = CodeTextBox.Text.Split(' ')[0];
+                var Name = CodeTextBox.Text.Split(' ')[1];
+
+                ProfileInfo profileInfo = new ProfileInfo();
+                if (_profileMaps.ContainsKey(Name))
+                {
+                    profileInfo = _profileMaps[Name];
+                }
+                else
+                {
+                    profileInfo = await SearchStockProfile_Async(code, Name);
+                    _profileMaps[Name] = profileInfo;
+                }
+                if (profileInfo != null)
+                {
+                    string profile = profileInfo.Name + " : ";
+                    string profileDetail = "";
+                    for (int i = 0; i < profileInfo.Industry.Count; i++)
+                    {
+                        if (i < 3)
+                        {
+                            profile += profileInfo.Industry[i] + " ,";
+                        }
+                        profileDetail += profileInfo.Industry[i] + "  ";
+                    }
+                    profile += "...";
+                    profileDetail += "\r\n";
+                    for (int i = 0; i < profileInfo.Concept.Count; i++)
+                    {
+                        string str = $"{profileInfo.Concept[i].Item1} : {profileInfo.Concept[i].Item2}, {profileInfo.Concept[i].Item3}";
+                        profileDetail += str + "\r\n";
+                    }
+
+                    ProfileText.Text = profile;
+                    ProfileText.ToolTip = profileDetail;
+                }
+            }
         }
 
         private void InitCodeTextBox()
@@ -1289,6 +1343,18 @@ namespace StockTickerExtension2019
                     UpdatePricesText(snap);
                     UpdateProfitDisplay();
                     UpdateCostShares(snap.Code);
+
+                    if (!ProfileText.Text.StartsWith(snap.Name))
+                    {
+                        if (_profileMaps.ContainsKey(snap.Name))
+                        {
+                            ProfileBtn_Click(null, null);
+                        }
+                        else
+                        {
+                            ProfileText.Text = " ";
+                        }
+                    }
 
                     if (_monitorOnce)
                     {
@@ -2729,6 +2795,47 @@ namespace StockTickerExtension2019
             _fuzzySearchDialog.Top = screenPos.Y;
             _fuzzySearchDialog.Show();
         }
+                private async Task<ProfileInfo> SearchStockProfile_Async(string code, string name)
+        {
+            ProfileInfo profileInfo = new ProfileInfo();
+            profileInfo.Code = code;
+            profileInfo.Name = name;
 
+            var secId = Tool.GetProfileCode(_stockType, code);
+            var url = s_profileA_URL + secId;
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
+            using (var resp = await client.GetAsync(url))
+            {
+                if (!resp.IsSuccessStatusCode)
+                    return null;
+
+                string text = await resp.Content.ReadAsStringAsync();
+                var jObj = JObject.Parse(text);
+                var results = jObj["ssbk"];        //行业板块
+                if (results != null)
+                {
+                    foreach (var item in results)
+                    {
+                        var borardName = item["BOARD_NAME"]?.ToString();
+                        profileInfo.Industry.Add(borardName);
+                    }
+                }
+                results = jObj["hxtc"];        //核心题材
+                if (results != null)
+                {
+                    foreach (var item in results)
+                    {
+                        var keyword = item["KEYWORD"]?.ToString();
+                        var content = item["MAINPOINT_CONTENT"]?.ToString();
+                        var type = item["KEY_CLASSIF"]?.ToString();
+                        profileInfo.Concept.Add((type, keyword, content));
+                    }
+                }
+            }
+
+            return profileInfo;
+        }
     }
 }
