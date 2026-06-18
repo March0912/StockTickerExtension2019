@@ -494,7 +494,6 @@ namespace StockTickerExtension2019
             CostBox.LostFocus += CostBox_LostFocus;
             CostBox.KeyUp += CostBox_KeyUp;
 
-            ProfileBtn.Click += ProfileBtn_Click;
             _profileMaps = new Dictionary<string, ProfileInfo>();
 
             MA5.IsEnabled = false;
@@ -527,7 +526,7 @@ namespace StockTickerExtension2019
             _uiTimer.Stop();
             Logger.Info("StockToolWindowControl init finished");
         }
-        private async void ProfileBtn_Click(object sender, RoutedEventArgs e)
+        private async void GetProfileInfoAsync()
         {
             if (CodeTextBox.Text.Length > 0)
             {
@@ -550,7 +549,7 @@ namespace StockTickerExtension2019
                     string profileDetail = "";
                     for (int i = 0; i < profileInfo.Industry.Count; i++)
                     {
-                        if (i < 3)
+                        if (i < 10)
                         {
                             profile += profileInfo.Industry[i] + " ,";
                         }
@@ -1343,18 +1342,7 @@ namespace StockTickerExtension2019
                     UpdatePricesText(snap);
                     UpdateProfitDisplay();
                     UpdateCostShares(snap.Code);
-
-                    if (!ProfileText.Text.StartsWith(snap.Name))
-                    {
-                        if (_profileMaps.ContainsKey(snap.Name))
-                        {
-                            ProfileBtn_Click(null, null);
-                        }
-                        else
-                        {
-                            ProfileText.Text = " ";
-                        }
-                    }
+                    UpdateProfile(snap);
 
                     if (_monitorOnce)
                     {
@@ -2725,6 +2713,13 @@ namespace StockTickerExtension2019
             {
                 SharesBox.Text = "0";
                 CostBox.Text = "0";
+            }
+        }
+        public void UpdateProfile(StockSnapshot snap)
+        {
+            if (!ProfileText.Text.StartsWith(snap.Name))
+            {
+                GetProfileInfoAsync();
             }
         }
 
