@@ -186,7 +186,18 @@ namespace StockTickerExtension2019
                         }
                         else
                         {
-                            UpdateStockType(StockMarket.StockA);
+                            if (text.Length == 6)
+                            {
+                                UpdateStockType(StockMarket.StockA);
+                            }
+                            else if (text.Length == 5)
+                            {
+                                UpdateStockType(StockMarket.StockHK);
+                            }
+                            else
+                            {
+                                UpdateStockType(StockMarket.StockUS);
+                            }
                             StartMonitoring();
                         }
                     }
@@ -531,8 +542,9 @@ namespace StockTickerExtension2019
             if (CodeTextBox.Text.Length > 0)
             {
                 var t = CodeTextBox.Text;
-                var code = t.Split(' ')[0];
-                var Name = t.Length == 2 ? t.Split(' ')[1] : "";
+                var list = t.Split(' ');
+                var code = list[0];
+                var Name = list.Length == 2 ? list[1] : "";
 
                 ProfileInfo profileInfo = new ProfileInfo();
                 if (Name.Length > 0 && _profileMaps.ContainsKey(Name))
@@ -926,7 +938,7 @@ namespace StockTickerExtension2019
             PeriodType period = (PeriodType)PeriodComboBox.SelectedIndex;
             if (!CheckTradingTime())
             {
-                if (period == PeriodType.Intraday && DateTime.Now.TimeOfDay < new TimeSpan(9, 30, 0))
+                if (period == PeriodType.Intraday && DateTime.Now.TimeOfDay < new TimeSpan(9, 15, 0))
                 {
                     return;
                 }
@@ -2800,42 +2812,48 @@ namespace StockTickerExtension2019
             var secId = Tool.GetProfileCode(_stockType, code);
             var url = s_profileA_URL + secId;
 
-            HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
-            using (var resp = await client.GetAsync(url))
+            try
             {
-                if (!resp.IsSuccessStatusCode)
-                    return null;
-
-                string text = await resp.Content.ReadAsStringAsync();
-                var jObj = JObject.Parse(text);
-                var results = jObj["ssbk"];        //行业板块
-                if (results != null)
+                HttpClient client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
+                using (var resp = await client.GetAsync(url))
                 {
-                    foreach (var item in results)
-                    {
-                        var borardName = item["BOARD_NAME"]?.ToString();
-                        profileInfo.Industry.Add(borardName);
+                    if (!resp.IsSuccessStatusCode)
+                        return null;
 
-                        if (string.IsNullOrEmpty(profileInfo.Name))
+                    string text = await resp.Content.ReadAsStringAsync();
+                    var jObj = JObject.Parse(text);
+                    var results = jObj["ssbk"];        //行业板块
+                    if (results != null)
+                    {
+                        foreach (var item in results)
                         {
-                            profileInfo.Name = item["SECURITY_NAME_ABBR"]?.ToString();
+                            var borardName = item["BOARD_NAME"]?.ToString();
+                            profileInfo.Industry.Add(borardName);
+
+                            if (string.IsNullOrEmpty(profileInfo.Name))
+                            {
+                                profileInfo.Name = item["SECURITY_NAME_ABBR"]?.ToString();
+                            }
+                        }
+                    }
+                    results = jObj["hxtc"];        //核心题材
+                    if (results != null)
+                    {
+                        foreach (var item in results)
+                        {
+                            var keyword = item["KEYWORD"]?.ToString();
+                            var content = item["MAINPOINT_CONTENT"]?.ToString();
+                            var type = item["KEY_CLASSIF"]?.ToString();
+                            profileInfo.Concept.Add((type, keyword, content));
                         }
                     }
                 }
-                results = jObj["hxtc"];        //核心题材
-                if (results != null)
-                {
-                    foreach (var item in results)
-                    {
-                        var keyword = item["KEYWORD"]?.ToString();
-                        var content = item["MAINPOINT_CONTENT"]?.ToString();
-                        var type = item["KEY_CLASSIF"]?.ToString();
-                        profileInfo.Concept.Add((type, keyword, content));
-                    }
-                }
             }
-
+            catch (Exception ex)
+            {
+                Logger.Error(ex.Message);
+            }
             return profileInfo;
         }
     }
