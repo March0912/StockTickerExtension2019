@@ -594,7 +594,7 @@ namespace StockTickerExtension2019
                     string profileDetail = "";
                     for (int i = 0; i < profileInfo.Industry.Count; i++)
                     {
-                        if (i < 10)
+                        if (i < 5)
                         {
                             profile += profileInfo.Industry[i] + " ,";
                         }
