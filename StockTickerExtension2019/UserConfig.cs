@@ -12,6 +12,13 @@ namespace StockTickerExtension2019
         public float CostPrice { get; set; } = 0.0f;
         public float CostTL { get; set; } = 0.0f;
     };
+    public class JoinData
+    {
+        public string StockCode { get; set; }
+        public DateTime JoinDate { get; set; }
+        public double JoinPrice { get; set; }
+    }
+
     public class UserConfig
     {
         public string CurrentStock { get; set; }
@@ -22,6 +29,7 @@ namespace StockTickerExtension2019
         public bool MA60Checked { get; set; } = true;
         public List<string> WatchStockList { get; set; } = new List<string>();
         public List<CostData> CostList { get; set; } = new List<CostData>();
+        public List<JoinData> JoinList { get; set; } = new List<JoinData>();
     }
 
     public class ConfigManager

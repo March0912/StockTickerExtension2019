@@ -88,20 +88,20 @@ namespace StockTickerExtension2019
                 DatePickerControl.IsEnabled = false;
                 DatePickerControl.SelectedDate = DateTime.Today;
 
-                //MA5.IsEnabled = false;
-                //MA5.Content = "MA5: --";
+                MA5.IsEnabled = false;
+                MA5.Content = "MA5: --";
 
-                //MA10.IsEnabled = false;
-                //MA10.Content = "MA10: --";
+                MA10.IsEnabled = false;
+                MA10.Content = "MA10: --";
 
-                //MA20.IsEnabled = false;
-                //MA20.Content = "MA20: --";
+                MA20.IsEnabled = false;
+                MA20.Content = "MA20: --";
 
-                //MA30.IsEnabled = false;
-                //MA30.Content = "MA30: --";
+                MA30.IsEnabled = false;
+                MA30.Content = "MA30: --";
 
-                //MA60.IsEnabled = false;
-                //MA60.Content = "MA60: --";
+                MA60.IsEnabled = false;
+                MA60.Content = "MA60: --";
 
                 WpfPlotChart1.Plot.Clear();
                 WpfPlotChart1.Height = 240;
@@ -296,6 +296,26 @@ namespace StockTickerExtension2019
                 {
                     CodeTextBox.Items.Add(text);
                 }
+
+                var list = text.Split(' ');
+                if (list.Length > 0)
+                {
+                    var code = list[0];
+                    var item = _configManager.Config.JoinList.Find(x => x.StockCode == code);
+                    if (item == null)
+                    {
+                        JoinData jd = new JoinData();
+                        jd.StockCode = code;
+                        jd.JoinDate = DateTime.Today;
+                        if (_currentSnapshot != null && _currentSnapshot.Code == code)
+                        {
+                            jd.JoinPrice = _currentSnapshot.CurrentPrice;
+                            _configManager.Config.JoinList.Add(jd);
+
+                            JoinDate.Text = "JoinDate: " + jd.JoinDate.ToString("yyyy-MM-dd");
+                        }
+                    }
+                }
             }
         }
 
@@ -305,6 +325,17 @@ namespace StockTickerExtension2019
             if (!string.IsNullOrEmpty(text))
             {
                 CodeTextBox.Items.Remove(text);
+
+                var list = text.Split(' ');
+                if (list.Length > 0)
+                {
+                    var code = list[0];
+                    var item = _configManager.Config.JoinList.Find(x => x.StockCode == code);
+                    if (item != null)
+                    {
+                        _configManager.Config.JoinList.Remove(item);
+                    }
+                }
             }
         }
 
@@ -477,6 +508,7 @@ namespace StockTickerExtension2019
             string stock = _configManager.Config.CurrentStock;
             string code = stock.Split(' ')[0];
             UpdateCostShares(code);
+            UpdateJoinDate(code);
 
             MA5.IsChecked = _configManager.Config.MA5Checked;
             MA10.IsChecked = _configManager.Config.MA10Checked;
@@ -1355,6 +1387,7 @@ namespace StockTickerExtension2019
                     UpdatePricesText(snap);
                     UpdateProfitDisplay();
                     UpdateCostShares(snap.Code);
+                    UpdateJoinDate(snap.Code);
                     UpdateProfile(snap);
 
                     if (_monitorOnce)
@@ -1676,7 +1709,7 @@ namespace StockTickerExtension2019
                 // X 轴对齐：使每个 candle 在整数位置（0..count-1）居中
                 double xMin = -0.5;
                 double xMax = count - 0.5;
-                WpfPlotChart1.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+                WpfPlotChart1.Plot.SetAxisLimitsX(xMin, xMax);
 
                 // 设置 X 轴刻度 - 使用时间轴标签
                 var (ticks, labels) = Tool.GenerateTimeAxisLabels(GetCurrentPeriod(), snap.KLineDates, GetCurrentDate());
@@ -1685,6 +1718,7 @@ namespace StockTickerExtension2019
 
                 DrawAVGLines(snap);
                 DrawCostLine();
+                DrawJoinDateLine(snap);
 
                 if (crosshair != null)
                 {
@@ -2255,6 +2289,80 @@ namespace StockTickerExtension2019
             return ma60;
         }
 
+        private void DrawJoinDateLine(StockSnapshot snap)
+        {
+            var item = _configManager.Config.JoinList.Find(x => x.StockCode == snap.Code);
+            if (item == null)
+                return;
+
+            int index = -1;
+            for (int i = 0; i < snap.KLineDates.Length; i++)
+            {
+                if (snap.KLineDates[i].Date >= item.JoinDate)
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index == -1)
+                return;
+
+            double y = snap.HighPrices[index];
+
+            double range = snap.HighPrices.Max() - snap.LowPrices.Min();
+
+            double high = snap.HighPrices[index];
+            double low = snap.LowPrices[index];
+
+            const double margin = 0.02;
+
+            double candleHeight = Math.Max(high - low, range * margin);
+            double lineLength = Math.Max(candleHeight * 2, range * 0.03);
+
+            double lineTop = high + lineLength;
+            double lineBottom = low - lineLength;
+
+            var limits = WpfPlotChart1.Plot.GetAxisLimits();
+            double yMin = limits.YMin;
+            double yMax = limits.YMax;
+
+            double lineStart = high;
+            lineStart += lineStart * margin;
+
+            double lineEnd = lineTop;
+            ScottPlot.Alignment textAlignment = ScottPlot.Alignment.LowerCenter;
+
+            if (lineEnd > yMax)
+            {
+                lineStart = low;
+                lineStart -= lineStart * margin;
+
+                lineEnd = lineBottom;
+                textAlignment = ScottPlot.Alignment.UpperCenter;
+
+                if (lineEnd < yMin)
+                {
+                    lineStart = high;
+                    lineStart += lineStart * margin;
+
+                    lineEnd = lineTop;
+                    textAlignment = ScottPlot.Alignment.LowerCenter;
+                }
+            }
+
+            var arrow = WpfPlotChart1.Plot.AddArrow(index, lineStart, index, lineEnd);
+            arrow.LineStyle = ScottPlot.LineStyle.Dash;
+            arrow.LineWidth = 1.2;
+            arrow.ArrowheadLength = 5;
+            arrow.Color = System.Drawing.Color.Yellow;
+
+            var txt = WpfPlotChart1.Plot.AddText("自", index, lineEnd);
+            txt.Alignment = textAlignment;
+            txt.FontSize = 12;
+            txt.FontBold = true;
+        }
+
         private void UpdateProfitDisplay()
         {
             if (!float.TryParse(SharesBox.Text, out float shares)) return;
@@ -2726,6 +2834,19 @@ namespace StockTickerExtension2019
             {
                 SharesBox.Text = "0";
                 CostBox.Text = "0";
+            }
+        }
+
+        public void UpdateJoinDate(string stockCode)
+        {
+            var item = _configManager.Config.JoinList.Find(x => x.StockCode == stockCode);
+            if (item != null)
+            {
+                JoinDate.Text = "JoinDate: " + item.JoinDate.ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                JoinDate.Text = "JoinDate: --";
             }
         }
         public void UpdateProfile(StockSnapshot snap)
